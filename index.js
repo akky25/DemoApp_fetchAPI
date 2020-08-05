@@ -1,4 +1,16 @@
-// const userId = "js-primer-example";
+async function main() {
+  try {
+    const userId = document.getElementById("userId").value;
+    const userInfo = await fetchUserInfo(userId);
+    const view = createView(userInfo);
+    displayView(view);
+  } catch (response) {
+    if (response.status == '404') {
+      displayView('ユーザーが見つかりません')
+    }
+    console.log(`${response.status}: ${response.statusText}`);
+  }
+}
 
 /**
  * GitHubからユーザー情報を取得
@@ -6,39 +18,50 @@
  */
 function fetchUserInfo(userId) {
   // fetchAPIはPromiseオブジェクトを返却する
-  // このPromiseインスタンスはHTTPレスポンスをResponseオブジェクトとしてresolveする
-  // HTTP通信エラーの場合は、エラー情報を含むオブジェクトでrejectされる
-  fetch(`https://api.github.com/users/${encodeURIComponent(userId)}`)
+  // 取得が成功した場合、このPromiseインスタンスはHTTPレスポンスをResponseオブジェクトとしてresolveする
+  // HTTP通信エラーの場合は、エラー情報を含むPromiseオブジェクトをreturnする
+  return fetch(`https://api.github.com/users/${encodeURIComponent(userId)}`)
     .then(response => {
       // ResponseのstatusプロパティからHTTPレスポンスのステータスコードが取得可能
       console.log(response.status);
-
       // HTTPステータスのハンドリング
       if (!response.ok) {
-        console.error("エラーレスポンス", response);
+        return Promise.reject(response);
+        // ステータスエラーの場合、エラー情報を含むPromiseをreturnする
+        // return Promise.reject(new Error(`${response.status}: ${response.statusText}`));
       } else {
-        // Responseオブジェクトのjson()はPromiseを返す
+        // ステータスがOKの場合、レスポンスボディを含むPromiseをreturnする
+        // Responseオブジェクトのjson()はPromiseをreturnする
         // このPromiseはHTTPレスポンスボディをjsonとしてパースしたオブジェクトでresoleveする
-        return response.json().then(userInfo => {
-          // タグ関数によるHTMLの組み立て
-          const view = escapeHTML`
-          <h4>${userInfo.name} (@${userInfo.login})</h4>
-          <img src="${userInfo.avatar_url}" alt="${userInfo.login}" height="100">
-          <dl>
-              <dt>Location</dt>
-              <dd>${userInfo.location}</dd>
-              <dt>Repositories</dt>
-              <dd>${userInfo.public_repos}</dd>
-          </dl>
-          `;
-          // HTMLの挿入
-          const result = document.getElementById("result");
-          result.innerHTML = view;
-        })
+        return response.json()
       }
-    }).catch(error => {
-      console.error(error);
-    })
+    });
+}
+
+/**
+ * ユーザー情報からHTMLを生成する
+ * @param {object} userInfo 
+ */
+function createView(userInfo) {
+  return escapeHTML`
+  <h4>${userInfo.name} (@${userInfo.login})</h4>
+  <img src="${userInfo.avatar_url}" alt="${userInfo.login}" height="100">
+  <dl>
+      <dt>Location</dt>
+      <dd>${userInfo.location}</dd>
+      <dt>Repositories</dt>
+      <dd>${userInfo.public_repos}</dd>
+  </dl>
+  `;
+}
+
+/**
+ * HTMLを表示する 
+ * @param {string} view 
+ */
+function displayView(view) {
+  const result = document.getElementById("result");
+  result.innerHTML = view;
 }
 
 /**
@@ -56,8 +79,8 @@ function escapeSpecialChars(str) {
 
 /**
  * テンプレートリテラルに対してエスケープ処理を行う
- * @param {*} strings 
- * @param  {...any} values 
+ * @param {object} strings 
+ * @param  {object} values 
  */
 function escapeHTML(strings, ...values) {
   return strings.reduce((result, str, i) => {
